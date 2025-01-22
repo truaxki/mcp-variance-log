@@ -11,36 +11,36 @@ notes: dict[str, str] = {}
 
 server = Server("mcp-variance-log")
 
-@server.list_resources()
-async def handle_list_resources() -> list[types.Resource]:
-    """
-    List available note resources.
-    Each note is exposed as a resource with a custom note:// URI scheme.
-    """
-    return [
-        types.Resource(
-            uri=AnyUrl(f"note://internal/{name}"),
-            name=f"Note: {name}",
-            description=f"A simple note named {name}",
-            mimeType="text/plain",
-        )
-        for name in notes
-    ]
+# @server.list_resources()
+# async def handle_list_resources() -> list[types.Resource]:
+#     """
+#     List available note resources.
+#     Each note is exposed as a resource with a custom note:// URI scheme.
+#     """
+#     return [
+#         types.Resource(
+#             uri=AnyUrl(f"note://internal/{name}"),
+#             name=f"Note: {name}",
+#             description=f"A simple note named {name}",
+#             mimeType="text/plain",
+#         )
+#         for name in notes
+#     ]
 
-@server.read_resource()
-async def handle_read_resource(uri: AnyUrl) -> str:
-    """
-    Read a specific note's content by its URI.
-    The note name is extracted from the URI host component.
-    """
-    if uri.scheme != "note":
-        raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
+# @server.read_resource()
+# async def handle_read_resource(uri: AnyUrl) -> str:
+#     """
+#     Read a specific note's content by its URI.
+#     The note name is extracted from the URI host component.
+#     """
+#     if uri.scheme != "note":
+#         raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
 
-    name = uri.path
-    if name is not None:
-        name = name.lstrip("/")
-        return notes[name]
-    raise ValueError(f"Note not found: {name}")
+#     name = uri.path
+#     if name is not None:
+#         name = name.lstrip("/")
+#         return notes[name]
+#     raise ValueError(f"Note not found: {name}")
 
 @server.list_prompts()
 async def handle_list_prompts() -> list[types.Prompt]:
@@ -59,39 +59,45 @@ async def handle_list_prompts() -> list[types.Prompt]:
                     required=False,
                 )
             ],
-        )
+        ),
+        # TODO: Add prompt for executive summary format
+        # types.Prompt(
+        #     name="executive-summary",
+        #     description="Format for executive summary report",
+        #     arguments=[]
+        # )
     ]
 
-@server.get_prompt()
-async def handle_get_prompt(
-    name: str, arguments: dict[str, str] | None
-) -> types.GetPromptResult:
-    """
-    Generate a prompt by combining arguments with server state.
-    The prompt includes all current notes and can be customized via arguments.
-    """
-    if name != "summarize-notes":
-        raise ValueError(f"Unknown prompt: {name}")
+# @server.get_prompt()
+# async def handle_get_prompt(
+#     name: str, arguments: dict[str, str] | None
+# ) -> types.GetPromptResult:
+#     """
+#     Generate a prompt by combining arguments with server state.
+#     The prompt includes all current notes and can be customized via arguments.
+#     """
+#     if name != "summarize-notes":
+#         raise ValueError(f"Unknown prompt: {name}")
 
-    style = (arguments or {}).get("style", "brief")
-    detail_prompt = " Give extensive details." if style == "detailed" else ""
+#     style = (arguments or {}).get("style", "brief")
+#     detail_prompt = " Give extensive details." if style == "detailed" else ""
 
-    return types.GetPromptResult(
-        description="Summarize the current notes",
-        messages=[
-            types.PromptMessage(
-                role="user",
-                content=types.TextContent(
-                    type="text",
-                    text=f"Here are the current notes to summarize:{detail_prompt}\n\n"
-                    + "\n".join(
-                        f"- {name}: {content}"
-                        for name, content in notes.items()
-                    ),
-                ),
-            )
-        ],
-    )
+#     return types.GetPromptResult(
+#         description="Summarize the current notes",
+#         messages=[
+#             types.PromptMessage(
+#                 role="user",
+#                 content=types.TextContent(
+#                     type="text",
+#                     text=f"Here are the current notes to summarize:{detail_prompt}\n\n"
+#                     + "\n".join(
+#                         f"- {name}: {content}"
+#                         for name, content in notes.items()
+#                     ),
+#                 ),
+#             )
+#         ],
+#     )
 
 @server.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
@@ -101,17 +107,98 @@ async def handle_list_tools() -> list[types.Tool]:
     """
     return [
         types.Tool(
-            name="add-note",
-            description="Add a new note",
+            name="log-query",
+            description="""
+                            Conversation Variation analysis
+                            Continuously monitor our conversation and automatically log unusual or noteworthy interactions based on the following criteria:
+
+                            1. Probability Classifications:
+                            HIGH (Not Logged):
+                            - Common questions and responses
+                            - Standard technical inquiries
+                            - Regular clarifications
+                            - Normal conversation flow
+
+                            MEDIUM (Logged):
+                            - Unexpected but plausible technical issues
+                            - Unusual patterns in user behavior
+                            - Noteworthy insights or connections
+                            - Edge cases in normal usage
+                            - Uncommon but valid use cases
+
+                            LOW (Logged with Priority):
+                            - Highly unusual technical phenomena
+                            - Potentially problematic patterns
+                            - Critical edge cases
+                            - Unexpected system behaviors
+                            - Novel or unique use cases
+
+                            2. Automatic Logging Process:
+                            - Silently monitor each interaction
+                            - When MEDIUM or LOW probability events occur, use this tool to log them
+                            - Each log will include the context and reasoning
+                            - Logging happens without disrupting the conversation flow
+            """,
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string"},
-                    "content": {"type": "string"},
+                    "session_id": {
+                        "type": "string",
+                        "description": "Unique identifier for the chat session"
+                    },
+                    "user_id": {
+                        "type": "string",
+                        "description": "Identifier for the user"
+                    },
+                    "interaction_type": {
+                        "type": "string",
+                        "description": "Type of interaction being monitored"
+                    },
+                    "probability_class": {
+                        "type": "string",
+                        "enum": ["HIGH", "MEDIUM", "LOW"],
+                        "description": "Classification of interaction probability"
+                    },
+                    "message_content": {
+                        "type": "string",
+                        "description": "The user's message content"
+                    },
+                    "response_content": {
+                        "type": "string",
+                        "description": "The system's response content"
+                    },
+                    "context_summary": {
+                        "type": "string",
+                        "description": "Optional summary of interaction context"
+                    },
+                    "reasoning": {
+                        "type": "string",
+                        "description": "Explanation for the probability classification"
+                    }
                 },
-                "required": ["name", "content"],
+                "required": [
+                    "session_id",
+                    "user_id",
+                    "interaction_type",
+                    "probability_class",
+                    "message_content",
+                    "response_content"
+                ]
             },
-        )
+        ),
+        # TODO: Add second tool
+        # types.Tool(
+        #     name="get-summary",
+        #     description="Retrieve logs and format for executive summary",
+        #     inputSchema={
+        #         "type": "object",
+        #         "properties": {
+        #             "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
+        #             "end_date": {"type": "string", "description": "End date (YYYY-MM-DD)"}
+        #         },
+        #         "required": ["start_date", "end_date"]
+        #     }
+        # )
     ]
 
 @server.call_tool()
