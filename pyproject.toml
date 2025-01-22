@@ -1,0 +1,17 @@
+[project]
+name = "mcp-suprise-log"
+version = "0.1.0"
+description = "Agentic tool that looks for statistical variations in conversation structure and logs unusual events to a SQLite database."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [ "mcp>=1.2.0",]
+[[project.authors]]
+name = "truaxki"
+email = "truaxki@gmail.com"
+
+[build-system]
+requires = [ "hatchling",]
+build-backend = "hatchling.build"
+
+[project.scripts]
+mcp-suprise-log = "mcp_suprise_log:main"
