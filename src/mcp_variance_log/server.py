@@ -9,7 +9,7 @@ import mcp.server.stdio
 # Store notes as a simple key-value dict to demonstrate state management
 notes: dict[str, str] = {}
 
-server = Server("mcp-SUPRISE-log")
+server = Server("mcp-variance-log")
 
 @server.list_resources()
 async def handle_list_resources() -> list[types.Resource]:
@@ -154,7 +154,7 @@ async def main():
             read_stream,
             write_stream,
             InitializationOptions(
-                server_name="mcp-SUPRISE-log",
+                server_name="mcp-variance-log",
                 server_version="0.1.0",
                 capabilities=server.get_capabilities(
                     notification_options=NotificationOptions(),
