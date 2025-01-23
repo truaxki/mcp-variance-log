@@ -5,7 +5,11 @@ import mcp.types as types
 from mcp.server import NotificationOptions, Server
 from pydantic import AnyUrl
 import mcp.server.stdio
-from . import db  # Import the shared database instance
+from .db_utils import LogDatabase
+from . import DEFAULT_DB_PATH
+
+# Create a new database instance if needed
+db = LogDatabase(DEFAULT_DB_PATH)
 
 # Store logs as a simple key-value dict to demonstrate state management
 logs: dict[str, str] = {}
