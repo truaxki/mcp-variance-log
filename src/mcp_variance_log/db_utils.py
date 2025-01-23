@@ -86,8 +86,11 @@ class LogDatabase:
                 cursor = conn.cursor()
                 cursor.execute(query, params)
                 return cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Database error: {str(e)}")
+            return []
         except Exception as e:
-            print(f"Error retrieving logs: {e}")
+            print(f"Error: {str(e)}")
             return []
 
     def clear_logs(self) -> bool:
