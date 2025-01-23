@@ -204,8 +204,8 @@ async def handle_list_tools() -> list[types.Tool]:
         # )
     ]
 
-# Initialize database
-db = LogDatabase(r"C:\Users\ktrua\source\repos\mcp-variance-log\data\varlog.db")
+# Initialize database with relative path
+db = LogDatabase('data/varlog.db')  # Using relative path
 
 @server.call_tool()
 async def handle_call_tool(

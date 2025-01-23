@@ -3,7 +3,12 @@ from datetime import datetime
 from typing import Optional
 
 class LogDatabase:
-    def __init__(self, db_path: str = 'data/message_logs.db'):
+    def __init__(self, db_path: str):
+        """Initialize database connection.
+        
+        Args:
+            db_path (str): Path to SQLite database file
+        """
         self.db_path = db_path
 
     def add_log(self, session_id: str, user_id: str, interaction_type: str, 

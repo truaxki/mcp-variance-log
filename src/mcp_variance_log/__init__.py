@@ -1,9 +1,16 @@
 from . import server
+from .db_utils import LogDatabase
 import asyncio
+
+# Define default database path at package level
+DEFAULT_DB_PATH = 'data/varlog.db'
+
+# Initialize the database instance at package level
+db = LogDatabase(DEFAULT_DB_PATH)
 
 def main():
     """Main entry point for the package."""
     asyncio.run(server.main())
 
-# Optionally expose other important items at package level
-__all__ = ['main', 'server']
+# Expose package-level imports and variables
+__all__ = ['main', 'server', 'LogDatabase', 'db', 'DEFAULT_DB_PATH']
