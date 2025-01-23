@@ -47,7 +47,7 @@ class LogDatabase:
             return False
 
     def get_logs(self, 
-                 limit: int = 100,
+                 limit: int = 10,
                  start_date: Optional[datetime] = None,
                  end_date: Optional[datetime] = None) -> list:
         """
@@ -61,7 +61,7 @@ class LogDatabase:
         Returns:
             list: List of log entries
         """
-        query = "SELECT * FROM logs"
+        query = "SELECT * FROM chat_monitoring"
         params = []
         conditions = []
         
@@ -84,8 +84,7 @@ class LogDatabase:
                 cursor = conn.cursor()
                 cursor.execute(query, params)
                 return cursor.fetchall()
-        except Exception as e:
-            print(f"Error retrieving logs: {e}")
+        except Exception:
             return []
 
     def clear_logs(self) -> bool:

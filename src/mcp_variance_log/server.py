@@ -1,9 +1,10 @@
 import asyncio
+from datetime import datetime
+from typing import Optional
 
 from mcp.server.models import InitializationOptions
 import mcp.types as types
 from mcp.server import NotificationOptions, Server
-from pydantic import AnyUrl
 import mcp.server.stdio
 from .db_utils import LogDatabase
 from . import DEFAULT_DB_PATH
@@ -65,12 +66,6 @@ async def handle_list_prompts() -> list[types.Prompt]:
                 )
             ],
         ),
-        # TODO: Add prompt for executive summary format
-        # types.Prompt(
-        #     name="executive-summary",
-        #     description="Format for executive summary report",
-        #     arguments=[]
-        # )
     ]
 
 # @server.get_prompt()
@@ -189,78 +184,105 @@ async def handle_list_tools() -> list[types.Tool]:
                 ]
             },
         ),
-        # TODO: Add second tool
-        # types.Tool(
-        #     name="get-summary",
-        #     description="Retrieve logs and format for executive summary",
-        #     inputSchema={
-        #         "type": "object",
-        #         "properties": {
-        #             "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
-        #             "end_date": {"type": "string", "description": "End date (YYYY-MM-DD)"}
-        #         },
-        #         "required": ["start_date", "end_date"]
-        #     }
-        # )
+        types.Tool(
+            name="read-logs",
+            description="Retrieve logged conversation variations from the database.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of logs to retrieve",
+                        "default": 10,
+                        "minimum": 1,
+                        "maximum": 100
+                    },
+                    "start_date": {
+                        "type": "string",
+                        "description": "Filter logs after this date (ISO format YYYY-MM-DDTHH:MM:SS)"
+                    },
+                    "end_date": {
+                        "type": "string",
+                        "description": "Filter logs before this date (ISO format YYYY-MM-DDTHH:MM:SS)"
+                    }
+                },
+                "required": ["limit"]
+            }
+        ),
     ]
 
 @server.call_tool()
 async def handle_call_tool(
-    name: str, arguments: dict | None
-) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-    if name != "log-query":
-        raise ValueError(f"Unknown tool: {name}")
-
-    if not arguments:
-        raise ValueError("Missing arguments")
-
-    # Extract all required fields
-    session_id = arguments.get("session_id")
-    user_id = arguments.get("user_id")
-    interaction_type = arguments.get("interaction_type")
-    probability_class = arguments.get("probability_class")
-    message_content = arguments.get("message_content")
-    response_content = arguments.get("response_content")
+    name: str,
+    arguments: dict | None
+) -> list[types.TextContent]:
+    """Handle all tool calls."""
     
-    # Optional fields
-    context_summary = arguments.get("context_summary")
-    reasoning = arguments.get("reasoning")
-
-    # Validate required fields
-    required_fields = {
-        "session_id": session_id,
-        "user_id": user_id,
-        "interaction_type": interaction_type,
-        "probability_class": probability_class,
-        "message_content": message_content,
-        "response_content": response_content
-    }
-
-    for field_name, value in required_fields.items():
-        if not value:
-            raise ValueError(f"Missing required field: {field_name}")
-
-    # Use the shared database instance
-    success = db.add_log(
-        session_id=session_id,
-        user_id=user_id,
-        interaction_type=interaction_type,
-        probability_class=probability_class,
-        message_content=message_content,
-        response_content=response_content,
-        context_summary=context_summary,
-        reasoning=reasoning
-    )
-
-    if not success:
-        raise ValueError("Failed to save log to database")
-
-    return [
-        types.TextContent(
-            type="text",
-            text=f"Logged interaction for session '{session_id}' with probability class '{probability_class}'",
+    if name == "log-query":
+        # Existing log-query logic
+        session_id = arguments.get("session_id", "")
+        user_id = arguments.get("user_id", "")
+        interaction_type = arguments.get("interaction_type", "")
+        probability_class = arguments.get("probability_class", "")
+        message_content = arguments.get("message_content", "")
+        response_content = arguments.get("response_content", "")
+        context_summary = arguments.get("context_summary", "")
+        reasoning = arguments.get("reasoning", "")
+        
+        success = db.add_log(
+            session_id=session_id,
+            user_id=user_id,
+            interaction_type=interaction_type,
+            probability_class=probability_class,
+            message_content=message_content,
+            response_content=response_content,
+            context_summary=context_summary,
+            reasoning=reasoning
         )
-    ]
+        
+        return [types.TextContent(
+            type="text",
+            text="Log entry added successfully" if success else "Failed to add log entry"
+        )]
+    
+    elif name == "read-logs":
+        # Ensure we have arguments
+        if not arguments:
+            return [types.TextContent(type="text", text="No arguments provided")]
+            
+        # Extract limit with default
+        limit = min(max(arguments.get("limit", 100), 1), 1000)
+        
+        try:
+            # Get logs from database (no dates for now)
+            logs = db.get_logs(limit=limit)
+            
+            if not logs:
+                return [types.TextContent(type="text", text="No logs found")]
+            
+            # Format logs for display
+            formatted_logs = []
+            for log in logs:
+                formatted_log = f"""
+                Session: {log[0]}
+                User: {log[1]}
+                Type: {log[2]}
+                Probability: {log[3]}
+                Message: {log[4]}
+                Response: {log[5]}
+                Context: {log[6]}
+                Reasoning: {log[7]}
+                Timestamp: {log[8]}
+                ---
+                """
+                formatted_logs.append(types.TextContent(type="text", text=formatted_log))
+            
+            return formatted_logs
+            
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Error retrieving logs: {e}")]
+    
+    return []
 
 async def main():
     # Run the server using stdin/stdout streams
