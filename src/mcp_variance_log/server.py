@@ -5,9 +5,10 @@ import mcp.types as types
 from mcp.server import NotificationOptions, Server
 from pydantic import AnyUrl
 import mcp.server.stdio
+from .db_utils import LogDatabase
 
-# Store notes as a simple key-value dict to demonstrate state management
-notes: dict[str, str] = {}
+# Store logs as a simple key-value dict to demonstrate state management
+logs: dict[str, str] = {}
 
 server = Server("mcp-variance-log")
 
@@ -169,7 +170,7 @@ async def handle_list_tools() -> list[types.Tool]:
                     },
                     "context_summary": {
                         "type": "string",
-                        "description": "Optional summary of interaction context"
+                        "description": "Summary of interaction context"
                     },
                     "reasoning": {
                         "type": "string",
@@ -182,7 +183,9 @@ async def handle_list_tools() -> list[types.Tool]:
                     "interaction_type",
                     "probability_class",
                     "message_content",
-                    "response_content"
+                    "response_content",
+                    "context_summary",
+                    "reasoning"
                 ]
             },
         ),
@@ -201,36 +204,64 @@ async def handle_list_tools() -> list[types.Tool]:
         # )
     ]
 
+# Initialize database
+db = LogDatabase(r"C:\Users\ktrua\source\repos\mcp-variance-log\data\varlog.db")
+
 @server.call_tool()
 async def handle_call_tool(
     name: str, arguments: dict | None
 ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-    """
-    Handle tool execution requests.
-    Tools can modify server state and notify clients of changes.
-    """
-    if name != "add-note":
+    if name != "log-query":
         raise ValueError(f"Unknown tool: {name}")
 
     if not arguments:
         raise ValueError("Missing arguments")
 
-    note_name = arguments.get("name")
-    content = arguments.get("content")
+    # Extract all required fields
+    session_id = arguments.get("session_id")
+    user_id = arguments.get("user_id")
+    interaction_type = arguments.get("interaction_type")
+    probability_class = arguments.get("probability_class")
+    message_content = arguments.get("message_content")
+    response_content = arguments.get("response_content")
+    
+    # Optional fields
+    context_summary = arguments.get("context_summary")
+    reasoning = arguments.get("reasoning")
 
-    if not note_name or not content:
-        raise ValueError("Missing name or content")
+    # Validate required fields
+    required_fields = {
+        "session_id": session_id,
+        "user_id": user_id,
+        "interaction_type": interaction_type,
+        "probability_class": probability_class,
+        "message_content": message_content,
+        "response_content": response_content
+    }
 
-    # Update server state
-    notes[note_name] = content
+    for field_name, value in required_fields.items():
+        if not value:
+            raise ValueError(f"Missing required field: {field_name}")
 
-    # Notify clients that resources have changed
-    await server.request_context.session.send_resource_list_changed()
+    # Save to database using LogDatabase class
+    success = db.add_log(
+        session_id=session_id,
+        user_id=user_id,
+        interaction_type=interaction_type,
+        probability_class=probability_class,
+        message_content=message_content,
+        response_content=response_content,
+        context_summary=context_summary,
+        reasoning=reasoning
+    )
+
+    if not success:
+        raise ValueError("Failed to save log to database")
 
     return [
         types.TextContent(
             type="text",
-            text=f"Added note '{note_name}' with content: {content}",
+            text=f"Logged interaction for session '{session_id}' with probability class '{probability_class}'",
         )
     ]
 
