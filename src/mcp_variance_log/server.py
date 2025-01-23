@@ -204,6 +204,11 @@ async def handle_list_tools() -> list[types.Tool]:
                     "end_date": {
                         "type": "string",
                         "description": "Filter logs before this date (ISO format YYYY-MM-DDTHH:MM:SS)"
+                    },
+                    "full_details": {
+                        "type": "boolean",
+                        "description": "If true, show all fields; if false, show only context summaries",
+                        "default": False
                     }
                 },
                 "required": ["limit"]
@@ -218,7 +223,57 @@ async def handle_call_tool(
 ) -> list[types.TextContent]:
     """Handle all tool calls."""
     
-    if name == "log-query":
+    if name == "read-logs":
+        if not arguments:
+            return [types.TextContent(type="text", text="No arguments provided")]
+            
+        limit = min(max(arguments.get("limit", 10), 1), 100)
+        full_details = arguments.get("full_details", False)
+        
+        try:
+            logs = db.get_logs(limit=limit, full_details=full_details)
+            
+            if not logs:
+                return [types.TextContent(type="text", text="No logs found")]
+            
+            # Create compact table header with adjusted widths
+            header = ["ID", "Time", "Prob", "Type", "Context"]
+            separator = "-" * 90  # Increased overall width
+            table = [separator]
+            table.append(" | ".join([
+                f"{h:<4}" if h == "ID" else
+                f"{h:<12}" if h == "Time" else
+                f"{h:<6}" if h == "Prob" or h == "Type" else
+                f"{h:<45}"  # Increased context width
+                for h in header
+            ]))
+            table.append(separator)
+            
+            # Create compact rows with adjusted widths
+            for log in logs:
+                time_str = str(log[1])[5:16]  # Extract MM-DD HH:MM
+                context = str(log[8])[:42] + "..." if len(str(log[8])) > 42 else str(log[8])  # Increased context length
+                row = [
+                    str(log[0])[:4],          # ID
+                    time_str,                 # Time
+                    str(log[5])[:6],          # Prob
+                    str(log[4])[:6],          # Type
+                    context                   # Truncated context
+                ]
+                table.append(" | ".join([
+                    f"{str(cell):<4}" if i == 0 else  # ID
+                    f"{str(cell):<12}" if i == 1 else  # Time
+                    f"{str(cell):<6}" if i in [2, 3] else  # Prob and Type
+                    f"{str(cell):<45}"  # Context
+                    for i, cell in enumerate(row)
+                ]))
+            
+            return [types.TextContent(type="text", text="\n".join(table))]
+            
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Error retrieving logs: {e}")]
+    
+    elif name == "log-query":
         # Existing log-query logic
         session_id = arguments.get("session_id", "")
         user_id = arguments.get("user_id", "")
@@ -244,43 +299,6 @@ async def handle_call_tool(
             type="text",
             text="Log entry added successfully" if success else "Failed to add log entry"
         )]
-    
-    elif name == "read-logs":
-        # Ensure we have arguments
-        if not arguments:
-            return [types.TextContent(type="text", text="No arguments provided")]
-            
-        # Extract limit with default
-        limit = min(max(arguments.get("limit", 100), 1), 1000)
-        
-        try:
-            # Get logs from database (no dates for now)
-            logs = db.get_logs(limit=limit)
-            
-            if not logs:
-                return [types.TextContent(type="text", text="No logs found")]
-            
-            # Format logs for display
-            formatted_logs = []
-            for log in logs:
-                formatted_log = f"""
-                Session: {log[0]}
-                User: {log[1]}
-                Type: {log[2]}
-                Probability: {log[3]}
-                Message: {log[4]}
-                Response: {log[5]}
-                Context: {log[6]}
-                Reasoning: {log[7]}
-                Timestamp: {log[8]}
-                ---
-                """
-                formatted_logs.append(types.TextContent(type="text", text=formatted_log))
-            
-            return formatted_logs
-            
-        except Exception as e:
-            return [types.TextContent(type="text", text=f"Error retrieving logs: {e}")]
     
     return []
 

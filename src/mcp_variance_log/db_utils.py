@@ -49,7 +49,8 @@ class LogDatabase:
     def get_logs(self, 
                  limit: int = 10,
                  start_date: Optional[datetime] = None,
-                 end_date: Optional[datetime] = None) -> list:
+                 end_date: Optional[datetime] = None,
+                 full_details: bool = False) -> list:
         """
         Retrieve logs with optional filtering.
         
@@ -57,6 +58,7 @@ class LogDatabase:
             limit (int): Maximum number of logs to retrieve
             start_date (datetime, optional): Filter by start date
             end_date (datetime, optional): Filter by end date
+            full_details (bool): If True, return all fields; if False, return only context summary
             
         Returns:
             list: List of log entries
@@ -84,7 +86,8 @@ class LogDatabase:
                 cursor = conn.cursor()
                 cursor.execute(query, params)
                 return cursor.fetchall()
-        except Exception:
+        except Exception as e:
+            print(f"Error retrieving logs: {e}")
             return []
 
     def clear_logs(self) -> bool:
@@ -97,7 +100,7 @@ class LogDatabase:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("DELETE FROM logs")
+                cursor.execute("DELETE FROM chat_monitoring")
                 return True
         except Exception as e:
             print(f"Error clearing logs: {e}")
