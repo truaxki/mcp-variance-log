@@ -5,7 +5,7 @@ import mcp.types as types
 from mcp.server import NotificationOptions, Server
 from pydantic import AnyUrl
 import mcp.server.stdio
-from .db_utils import LogDatabase
+from . import db  # Import the shared database instance
 
 # Store logs as a simple key-value dict to demonstrate state management
 logs: dict[str, str] = {}
@@ -100,6 +100,8 @@ async def handle_list_prompts() -> list[types.Prompt]:
 #         ],
 #     )
 
+
+
 @server.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
     """
@@ -110,35 +112,29 @@ async def handle_list_tools() -> list[types.Tool]:
         types.Tool(
             name="log-query",
             description="""
-                            Conversation Variation analysis
-                            Continuously monitor our conversation and automatically log unusual or noteworthy interactions based on the following criteria:
+                Conversation Variation analysis
+                Continuously monitor our conversation and automatically log unusual or noteworthy interactions based on the following criteria:
 
-                            1. Probability Classifications:
-                            HIGH (Not Logged):
-                            - Common questions and responses
-                            - Standard technical inquiries
-                            - Regular clarifications
-                            - Normal conversation flow
+                1. Probability Classifications:
+                HIGH (Not Logged):
+                - Common questions and responses
+                - Standard technical inquiries
+                - Regular clarifications
+                - Normal conversation flow
 
-                            MEDIUM (Logged):
-                            - Unexpected but plausible technical issues
-                            - Unusual patterns in user behavior
-                            - Noteworthy insights or connections
-                            - Edge cases in normal usage
-                            - Uncommon but valid use cases
+                MEDIUM (Logged):
+                - Unexpected but plausible technical issues
+                - Unusual patterns in user behavior
+                - Noteworthy insights or connections
+                - Edge cases in normal usage
+                - Uncommon but valid use cases
 
-                            LOW (Logged with Priority):
-                            - Highly unusual technical phenomena
-                            - Potentially problematic patterns
-                            - Critical edge cases
-                            - Unexpected system behaviors
-                            - Novel or unique use cases
-
-                            2. Automatic Logging Process:
-                            - Silently monitor each interaction
-                            - When MEDIUM or LOW probability events occur, use this tool to log them
-                            - Each log will include the context and reasoning
-                            - Logging happens without disrupting the conversation flow
+                LOW (Logged with Priority):
+                - Highly unusual technical phenomena
+                - Potentially problematic patterns
+                - Critical edge cases
+                - Unexpected system behaviors
+                - Novel or unique use cases
             """,
             inputSchema={
                 "type": "object",
@@ -204,9 +200,6 @@ async def handle_list_tools() -> list[types.Tool]:
         # )
     ]
 
-# Initialize database with relative path
-db = LogDatabase('data/varlog.db')  # Using relative path
-
 @server.call_tool()
 async def handle_call_tool(
     name: str, arguments: dict | None
@@ -243,7 +236,7 @@ async def handle_call_tool(
         if not value:
             raise ValueError(f"Missing required field: {field_name}")
 
-    # Save to database using LogDatabase class
+    # Use the shared database instance
     success = db.add_log(
         session_id=session_id,
         user_id=user_id,
