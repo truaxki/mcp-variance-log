@@ -10,6 +10,36 @@ class LogDatabase:
             db_path (str): Path to SQLite database file
         """
         self.db_path = db_path
+        self.insights = []  # Added for append_insight support
+
+    def _execute_query(self, query: str, params: tuple = ()) -> list:
+        """Execute a raw SQL query and return results.
+        
+        Args:
+            query (str): SQL query to execute
+            params (tuple): Query parameters
+            
+        Returns:
+            list: Query results
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                if query.strip().upper().startswith('SELECT'):
+                    return cursor.fetchall()
+                conn.commit()
+                return []
+        except sqlite3.Error as e:
+            print(f"Database error in _execute_query: {str(e)}")
+            raise
+        except Exception as e:
+            print(f"Error in _execute_query: {str(e)}")
+            raise
+
+    def _synthesize_memo(self) -> str:
+        """Synthesize insights into a memo."""
+        return "\n".join(self.insights)
 
     def add_log(self, session_id: str, user_id: str, interaction_type: str, 
                 probability_class: str, message_content: str, response_content: str,

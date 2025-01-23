@@ -6,19 +6,41 @@ Agentic tool that looks for statistical variations in conversation structure and
 
 ### Resources
 
-The server implements a simple note storage system with:
-- Custom note:// URI scheme for accessing individual notes
-- Each note resource has a name, description and text/plain mimetype
+The server implements a memo resource system:
+- `memo://insights` URI scheme for accessing business insights
+- Insights are collected and synthesized into formatted memos
+- Notifications sent when insights are updated
 
 ### Tools
 
-The server implements one tool:
-- log-query: Monitors and logs conversation variations
+The server implements several tools:
+
+#### Logging Tools
+- `log-query`: Monitors and logs conversation variations
   - Automatically tracks interaction patterns
   - Classifies events by probability (HIGH/MEDIUM/LOW)
   - Logs unusual or noteworthy interactions
   - Includes context and reasoning in logs
   - Operates silently without disrupting conversation flow
+
+#### Database Management Tools
+- `read-logs`: Retrieve and display logged events
+  - Configurable limit (1-100 entries)
+  - Optional date range filtering
+  - Compact or detailed view options
+  - Formatted table output
+
+#### SQL Tools
+- `read_query`: Execute SELECT queries
+- `write_query`: Execute INSERT/UPDATE/DELETE queries
+- `create_table`: Create new database tables
+- `list_tables`: Show all database tables
+- `describe_table`: Show table structure
+
+#### Business Intelligence
+- `append_insight`: Add business insights to memo
+  - Automatically updates memo resource
+  - Notifies clients of changes
 
 ### Database
 
@@ -28,6 +50,11 @@ Uses SQLite to store:
 - Message and response content
 - Context summaries and reasoning
 - Timestamp information
+
+Tables:
+- `chat_monitoring`: Main logging table
+- `executive_summaries`: Business insights storage
+- `sqlite_sequence`: Internal SQLite table
 
 ## Configuration
 
@@ -113,13 +140,11 @@ Note: You'll need to set PyPI credentials via environment variables or command f
 Since MCP servers run over stdio, debugging can be challenging. For the best debugging
 experience, we strongly recommend using the [MCP Inspector](https://github.com/modelcontextprotocol/inspector).
 
-
 You can launch the MCP Inspector via [`npm`](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) with this command:
 
 ```bash
 npx @modelcontextprotocol/inspector uv --directory C:\Users\ktrua\source\repos\mcp-variance-log run mcp-variance-log
 ```
-
 
 Upon launching, the Inspector will display a URL that you can access in your browser to begin debugging.
 
