@@ -46,7 +46,7 @@ Automatic Logging Process:
 
 ## Usage
 
-### Example
+### Automatic Logging Examples
 ```
 prompt: "What if I told you I could lift 1000 lbs?"
 
@@ -89,7 +89,9 @@ ID   | Time         | Prob   | Type   | Context
 
 ### Text 2 SQL
 ```
-prompt: "Read-logs from this morning"
+prompt: "Can you search the logs for entry 29?"
+
+[{'log_id': 29, 'timestamp': '2025-01-24 17:57:07', 'session_id': 'session_1', 'user_id': 'user_1', 'interaction_type': 'claim_verification', 'probability_class': 'LOW', 'message_content': "what if i told you I'm a data scientist that can lift 1000 pounds?", 'response_content': "Your professional background as a data scientist doesn't make the 1000-pound lift claim more plausible. Such a lift would still be near the all-time world record of 1,104.5 lbs.", 'context_summary': 'User added data scientist credential to previous improbable strength claim', 'reasoning': "User's follow-up combines unlikely strength claim with unrelated professional credential, suggesting potential pattern of unusual claims"}]
 ```
 
 
