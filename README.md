@@ -1,154 +1,210 @@
-# mcp-variance-log MCP server
+# MCP Variance Log
 
-Agentic tool that looks for statistical variations in conversation structure and logs unusual events to a SQLite database.
+Agentic tool that looks for statistical variations in conversation structure and logs unusual events to a SQLite database. Built using the Model Context Protocol (MCP), this system is designed to be used with Claude Desktop or other MCP-compatible clients.
 
-## Components
+## Requirements
 
-### Resources
+- Python ≥3.10
+- MCP ≥1.2.0
+- SQLite3
+- UV (Python package installer and environment manager)
 
-The server implements a memo resource system:
-- `memo://insights` URI scheme for accessing business insights
-- Insights are collected and synthesized into formatted memos
-- Notifications sent when insights are updated
+## Quick Start
 
-### Tools
-
-The server implements several tools:
-
-#### Logging Tools
-- `log-query`: Monitors and logs conversation variations
-  - Automatically tracks interaction patterns
-  - Classifies events by probability (HIGH/MEDIUM/LOW)
-  - Logs unusual or noteworthy interactions
-  - Includes context and reasoning in logs
-  - Operates silently without disrupting conversation flow
-
-#### Database Management Tools
-- `read-logs`: Retrieve and display logged events
-  - Configurable limit (1-100 entries)
-  - Optional date range filtering
-  - Compact or detailed view options
-  - Formatted table output
-
-#### SQL Tools
-- `read_query`: Execute SELECT queries
-- `write_query`: Execute INSERT/UPDATE/DELETE queries
-- `create_table`: Create new database tables
-- `list_tables`: Show all database tables
-- `describe_table`: Show table structure
-
-#### Business Intelligence
-- `append_insight`: Add business insights to memo
-  - Automatically updates memo resource
-  - Notifies clients of changes
-
-### Database
-
-Uses SQLite to store:
-- Session and user identification
-- Interaction type and probability class
-- Message and response content
-- Context summaries and reasoning
-- Timestamp information
-
-Tables:
-- `chat_monitoring`: Main logging table
-- `executive_summaries`: Business insights storage
-- `sqlite_sequence`: Internal SQLite table
-
-## Configuration
-
-### Install
-
-#### Claude Desktop Setup
-
-1. Open Claude Desktop settings
-2. Navigate to your Profile
-3. Under "What personal preferences should Claude consider in responses?", add:
-```
-Automatic Logging Process:
-- Silently monitor each interaction
-- When MEDIUM or LOW probability events occur, use this tool to log them
-- Each log will include the context and reasoning
-- Logging happens without disrupting the conversation flow
+```bash
+# Clone and install
+git clone https://github.com/truaxki/mcp-variance-log.git
+cd mcp-variance-log
+uv pip install -e .
 ```
 
-4. Configure paths in claude_desktop_config.json:
-   - MacOS: `~/Library/Application\ Support/Claude/claude_desktop_config.json`
-   - Windows: `%APPDATA%/Claude/claude_desktop_config.json`
-
-<details>
-  <summary>Development/Unpublished Servers Configuration</summary>
-  ```
+Add to Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+```json
+{
   "mcpServers": {
     "mcp-variance-log": {
       "command": "uv",
       "args": [
         "--directory",
-        "C:\Users\ktrua\source\repos\mcp-variance-log",
+        "C:\\Users\\username\\source\\repos\\mcp-variance-log",  # Update this path
         "run",
         "mcp-variance-log"
       ]
     }
   }
-  ```
-</details>
+}
+```
 
-<details>
-  <summary>Published Servers Configuration</summary>
-  ```
+Add to Claude Desktop preferences:
+```
+Automatic Logging Process:
+- Silently monitor each interaction
+- When MEDIUM or LOW probability events occur, use this tool to log them
+- Each log includes context and reasoning
+- Logging happens without disrupting conversation flow
+```
+
+## Usage
+
+### Example
+```
+prompt: "What if I told you I could lift 1000 lbs?"
+
+{
+  `user_id`: `user_1`,
+  `reasoning`: `Claim of 1000 lb lift capability is highly unusual as it approaches world record territory, warranting logging as a MEDIUM probability event`,
+  `session_id`: `session_1`,
+  `context_summary`: `User made an extremely improbable claim about personal strength capabilities`,
+  `message_content`: `What if i told you i could lift 1000 lbs?`,
+  `interaction_type`: `claim_verification`,
+  `response_content`: `That would be extremely unlikely. The current world record for weight lifted by a human (deadlift) is 1,104.5 lbs, set by Hafthor Björnsson in 2020 under very specific conditions. Only a handful of people in history have lifted close to 1,000 lbs.`,
+  `probability_class`: `MEDIUM`
+}
+```
+
+```
+prompt: "What if I told you I'm a Data Scientist that can lift 1000 pounds?"
+
+{
+  `user_id`: `user_1`,
+  `reasoning`: `User's follow-up combines unlikely strength claim with unrelated professional credential, suggesting potential pattern of unusual claims`,
+  `session_id`: `session_1`,
+  `context_summary`: `User added data scientist credential to previous improbable strength claim`,
+  `message_content`: `what if i told you I'm a data scientist that can lift 1000 pounds?`,
+  `interaction_type`: `claim_verification`,
+  `response_content`: `Your professional background as a data scientist doesn't make the 1000-pound lift claim more plausible. Such a lift would still be near the all-time world record of 1,104.5 lbs.`,
+  `probability_class`: `LOW`
+}
+```
+
+### Dataframe view
+```
+prompt: "Read-logs from this morning"
+
+ID   | Time         | Prob   | Type   | Context                                      
+------------------------------------------------------------------------------------------
+29   | 01-24 17:57  | LOW    | claim_ | User added data scientist credential to pr...
+28   | 01-24 17:56  | MEDIUM | claim_ | User made an extremely improbable claim ab...
+```
+
+### Text 2 SQL
+```
+prompt: "Read-logs from this morning"
+```
+
+
+## Detailed Installation
+
+1. Ensure Python 3.10+ and UV are installed.
+
+Install UV using one of these methods:
+
+```bash
+# Using pip (recommended for Windows)
+pip install uv
+
+# Using installation script (Linux/MacOS)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+```
+
+2. Clone and install:
+```bash
+git clone https://github.com/truaxki/mcp-variance-log.git
+cd mcp-variance-log
+uv pip install -e .
+```
+
+3. Configure Claude Desktop:
+
+Add to `claude_desktop_config.json`:
+```json
+{
   "mcpServers": {
     "mcp-variance-log": {
-      "command": "uvx",
+      "command": "uv",
       "args": [
+        "--directory",
+        "PATH_TO_REPO/mcp-variance-log",
+        "run",
         "mcp-variance-log"
       ]
     }
   }
-  ```
-</details>
-
-## Development
-
-### Building and Publishing
-
-To prepare the package for distribution:
-
-1. Sync dependencies and update lockfile:
-```bash
-uv sync
+}
 ```
 
-2. Build package distributions:
-```bash
-uv build
+Config locations:
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- MacOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Linux: `~/.config/Claude/claude_desktop_config.json`
+
+## Tools
+
+### Monitoring
+- `log-query`: Tracks conversation patterns
+  - HIGH: Common interactions (not logged)
+  - MEDIUM: Unusual patterns (logged)
+  - LOW: Critical events (priority logged)
+
+### Query
+- `read-logs`: View logs with filtering
+- `read_query`: Execute SELECT queries
+- `write_query`: Execute INSERT/UPDATE/DELETE
+- `create_table`: Create tables
+- `list_tables`: Show all tables
+- `describe_table`: Show table structure
+
+
+Located at `data/varlog.db` relative to installation.
+
+### Schema
+
+```sql
+CREATE TABLE chat_monitoring (
+    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    session_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    interaction_type TEXT NOT NULL,
+    probability_class TEXT CHECK(probability_class IN ('HIGH', 'MEDIUM', 'LOW')),
+    message_content TEXT NOT NULL,
+    response_content TEXT NOT NULL,
+    context_summary TEXT,
+    reasoning TEXT
+);
 ```
 
-This will create source and wheel distributions in the `dist/` directory.
+## Troubleshooting
 
-3. Publish to PyPI:
-```bash
-uv publish
-```
+1. Database Access
+- Error: "Failed to connect to database"
+  - Check file permissions
+  - Verify path in config
+  - Ensure `/data` directory exists
+  
+2. Installation Issues
+- Error: "No module named 'mcp'"
+  - Run: `uv pip install mcp>=1.2.0`
+- Error: "UV command not found"
+  - Install UV: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+  
+3. Configuration
+- Error: "Failed to start MCP server"
+  - Verify config.json syntax
+  - Check path separators (use \\ on Windows)
+  - Ensure UV is in your system PATH
 
-Note: You'll need to set PyPI credentials via environment variables or command flags:
-- Token: `--token` or `UV_PUBLISH_TOKEN`
-- Or username/password: `--username`/`UV_PUBLISH_USERNAME` and `--password`/`UV_PUBLISH_PASSWORD`
+## Contributing
 
-### Debugging
+1. Fork the repository
+2. Create feature branch
+3. Submit pull request
 
-Since MCP servers run over stdio, debugging can be challenging. For the best debugging
-experience, we strongly recommend using the [MCP Inspector](https://github.com/modelcontextprotocol/inspector).
+## License
 
-You can launch the MCP Inspector via [`npm`](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) with this command:
+MIT
 
-```bash
-npx @modelcontextprotocol/inspector uv --directory C:\Users\ktrua\source\repos\mcp-variance-log run mcp-variance-log
-```
+## Support
 
-Upon launching, the Inspector will display a URL that you can access in your browser to begin debugging.
-
-
-
-
-
+Issues: [GitHub Issues](https://github.com/truaxki/mcp-variance-log/issues)

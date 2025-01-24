@@ -15,160 +15,10 @@ import mcp.server.stdio
 from .db_utils import LogDatabase
 from . import DEFAULT_DB_PATH
 
-# Initialize logging and database
-logger = logging.getLogger('mcp_variance_log')
+# Initialize database connection
 db = LogDatabase(DEFAULT_DB_PATH)
 
-# Store logs as a simple key-value dict to demonstrate state management
-logs: dict[str, str] = {}
-
-logger = logging.getLogger('mcp_sqlite_server')
-logger.info("Starting MCP SQLite Server")
-
-
-class SqliteDatabase:
-    def __init__(self, db_path: str):
-        self.db_path = str(Path(db_path).expanduser())
-        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._init_database()
-        self.insights: list[str] = []
-
-    def _init_database(self):
-        """Initialize connection to the SQLite database"""
-        logger.debug("Initializing database connection")
-        with closing(sqlite3.connect(self.db_path)) as conn:
-            conn.row_factory = sqlite3.Row
-            conn.close()
-
-    def _synthesize_memo(self) -> str:
-        """Synthesizes business insights into a formatted memo"""
-        logger.debug(f"Synthesizing memo with {len(self.insights)} insights")
-        if not self.insights:
-            return "No business insights have been discovered yet."
-
-        insights = "\n".join(f"- {insight}" for insight in self.insights)
-
-        memo = "📊 Business Intelligence Memo 📊\n\n"
-        memo += "Key Insights Discovered:\n\n"
-        memo += insights
-
-        if len(self.insights) > 1:
-            memo += "\nSummary:\n"
-            memo += f"Analysis has revealed {len(self.insights)} key business insights that suggest opportunities for strategic optimization and growth."
-
-        logger.debug("Generated basic memo format")
-        return memo
-
-    def _execute_query(self, query: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-        """Execute a SQL query and return results as a list of dictionaries"""
-        logger.debug(f"Executing query: {query}")
-        try:
-            with closing(sqlite3.connect(self.db_path)) as conn:
-                conn.row_factory = sqlite3.Row
-                with closing(conn.cursor()) as cursor:
-                    if params:
-                        cursor.execute(query, params)
-                    else:
-                        cursor.execute(query)
-
-                    if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER')):
-                        conn.commit()
-                        affected = cursor.rowcount
-                        logger.debug(f"Write query affected {affected} rows")
-                        return [{"affected_rows": affected}]
-
-                    results = [dict(row) for row in cursor.fetchall()]
-                    logger.debug(f"Read query returned {len(results)} rows")
-                    return results
-        except Exception as e:
-            logger.error(f"Database error executing query: {e}")
-            raise
-
 server = Server("mcp-variance-log")
-
-# @server.list_resources()
-# async def handle_list_resources() -> list[types.Resource]:
-#     """
-#     List available note resources.
-#     Each note is exposed as a resource with a custom note:// URI scheme.
-#     """
-#     return [
-#         types.Resource(
-#             uri=AnyUrl(f"note://internal/{name}"),
-#             name=f"Note: {name}",
-#             description=f"A simple note named {name}",
-#             mimeType="text/plain",
-#         )
-#         for name in notes
-#     ]
-
-# @server.read_resource()
-# async def handle_read_resource(uri: AnyUrl) -> str:
-#     """
-#     Read a specific note's content by its URI.
-#     The note name is extracted from the URI host component.
-#     """
-#     if uri.scheme != "note":
-#         raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
-
-#     name = uri.path
-#     if name is not None:
-#         name = name.lstrip("/")
-#         return notes[name]
-#     raise ValueError(f"Note not found: {name}")
-
-@server.list_prompts()
-async def handle_list_prompts() -> list[types.Prompt]:
-    """
-    List available prompts.
-    Each prompt can have optional arguments to customize its behavior.
-    """
-    return [
-        types.Prompt(
-            name="summarize-notes",
-            description="Creates a summary of all notes",
-            arguments=[
-                types.PromptArgument(
-                    name="style",
-                    description="Style of the summary (brief/detailed)",
-                    required=False,
-                )
-            ],
-        ),
-    ]
-
-# @server.get_prompt()
-# async def handle_get_prompt(
-#     name: str, arguments: dict[str, str] | None
-# ) -> types.GetPromptResult:
-#     """
-#     Generate a prompt by combining arguments with server state.
-#     The prompt includes all current notes and can be customized via arguments.
-#     """
-#     if name != "summarize-notes":
-#         raise ValueError(f"Unknown prompt: {name}")
-
-#     style = (arguments or {}).get("style", "brief")
-#     detail_prompt = " Give extensive details." if style == "detailed" else ""
-
-#     return types.GetPromptResult(
-#         description="Summarize the current notes",
-#         messages=[
-#             types.PromptMessage(
-#                 role="user",
-#                 content=types.TextContent(
-#                     type="text",
-#                     text=f"Here are the current notes to summarize:{detail_prompt}\n\n"
-#                     + "\n".join(
-#                         f"- {name}: {content}"
-#                         for name, content in notes.items()
-#                     ),
-#                 ),
-#             )
-#         ],
-#     )
-
-
 
 @server.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
@@ -209,7 +59,20 @@ async def handle_list_tools() -> list[types.Tool]:
                 "properties": {
                     "session_id": {
                         "type": "string",
-                        "description": "Unique identifier for the chat session"
+                        "description": """Unique identifier for the chat session.
+                            Format: <date>_<user>_<sequence>
+                            Example: 20240124_u1_001
+
+                            Components:
+                            - date: YYYYMMDD
+                            - user: 'u' + user number
+                            - sequence: 3-digit sequential number
+
+                            Valid examples:
+                            - 20240124_u1_001
+                            - 20240124_u1_002
+                            - 20240125_u2_001""",
+                        "pattern": "^\\d{8}_u\\d+_\\d{3}$"  # Regex pattern to validate format
                     },
                     "user_id": {
                         "type": "string",
@@ -285,7 +148,28 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="read_query",
-            description="Execute a SELECT query on the SQLite database",
+            description="""Execute a SELECT query on the SQLite database
+
+                Schema Reference:
+                Table: chat_monitoring
+                Fields:
+                - log_id (INTEGER PRIMARY KEY)
+                - timestamp (DATETIME)
+                - session_id (TEXT)
+                - user_id (TEXT)
+                - interaction_type (TEXT)
+                - probability_class (TEXT: HIGH, MEDIUM, LOW)
+                - message_content (TEXT)
+                - response_content (TEXT)
+                - context_summary (TEXT)
+                - reasoning (TEXT)
+
+                Example:
+                SELECT timestamp, probability_class, context_summary 
+                FROM chat_monitoring 
+                WHERE probability_class = 'LOW'
+                LIMIT 5;
+                """,
             inputSchema={
                 "type": "object",
                 "properties": {

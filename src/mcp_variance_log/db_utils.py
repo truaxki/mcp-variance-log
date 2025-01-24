@@ -1,6 +1,11 @@
 import sqlite3
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
+from pathlib import Path
+from contextlib import closing
+import logging
+
+logger = logging.getLogger(__name__)
 
 class LogDatabase:
     def __init__(self, db_path: str):
@@ -9,37 +14,61 @@ class LogDatabase:
         Args:
             db_path (str): Path to SQLite database file
         """
-        self.db_path = db_path
-        self.insights = []  # Added for append_insight support
+        self.db_path = str(Path(db_path).expanduser())
+        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+        self._init_database()
+        self.insights: list[str] = []
 
-    def _execute_query(self, query: str, params: tuple = ()) -> list:
-        """Execute a raw SQL query and return results.
-        
-        Args:
-            query (str): SQL query to execute
-            params (tuple): Query parameters
-            
-        Returns:
-            list: Query results
-        """
+    def _init_database(self):
+        """Initialize connection to the SQLite database"""
+        logger.debug("Initializing database connection")
+        with closing(sqlite3.connect(self.db_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            conn.close()
+
+    def _execute_query(self, query: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        """Execute a SQL query and return results as a list of dictionaries"""
+        logger.debug(f"Executing query: {query}")
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute(query, params)
-                if query.strip().upper().startswith('SELECT'):
-                    return cursor.fetchall()
-                conn.commit()
-                return []
-        except sqlite3.Error as e:
-            print(f"Database error in _execute_query: {str(e)}")
-            raise
+            with closing(sqlite3.connect(self.db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                with closing(conn.cursor()) as cursor:
+                    if params:
+                        cursor.execute(query, params)
+                    else:
+                        cursor.execute(query)
+
+                    if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER')):
+                        conn.commit()
+                        affected = cursor.rowcount
+                        logger.debug(f"Write query affected {affected} rows")
+                        return [{"affected_rows": affected}]
+
+                    results = [dict(row) for row in cursor.fetchall()]
+                    logger.debug(f"Read query returned {len(results)} rows")
+                    return results
         except Exception as e:
-            print(f"Error in _execute_query: {str(e)}")
+            logger.error(f"Database error executing query: {e}")
             raise
 
     def _synthesize_memo(self) -> str:
-        """Synthesize insights into a memo."""
-        return "\n".join(self.insights)
+        """Synthesizes business insights into a formatted memo"""
+        logger.debug(f"Synthesizing memo with {len(self.insights)} insights")
+        if not self.insights:
+            return "No business insights have been discovered yet."
+
+        insights = "\n".join(f"- {insight}" for insight in self.insights)
+
+        memo = "📊 Business Intelligence Memo 📊\n\n"
+        memo += "Key Insights Discovered:\n\n"
+        memo += insights
+
+        if len(self.insights) > 1:
+            memo += "\nSummary:\n"
+            memo += f"Analysis has revealed {len(self.insights)} key business insights that suggest opportunities for strategic optimization and growth."
+
+        logger.debug("Generated basic memo format")
+        return memo
 
     def add_log(self, session_id: str, user_id: str, interaction_type: str, 
                 probability_class: str, message_content: str, response_content: str,
