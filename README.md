@@ -2,6 +2,8 @@
 
 Agentic tool that looks for statistical variations in conversation structure and logs unusual events to a SQLite database. Built using the Model Context Protocol (MCP), this system is designed to be used with Claude Desktop or other MCP-compatible clients.
 
+<a href="https://glama.ai/mcp/servers/acqq8twrk6"><img width="380" height="200" src="https://glama.ai/mcp/servers/acqq8twrk6/badge" alt="Variance Log MCP server" /></a>
+
 ## Requirements
 
 - Python ≥3.10
